@@ -120,6 +120,9 @@ Restart=always
 [Install]
 WantedBy=multi-user.target
 ```
+Do the first login manually in order to make sure you can accept the key:
+
+```ssh -i /home/tunnel/.ssh/tunnel -u tunnel tunnel@cloudnode```
 
 Enable service:
 
