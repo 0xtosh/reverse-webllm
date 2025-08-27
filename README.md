@@ -64,6 +64,7 @@ server {
     server_name chat.mydomain.com;
     ssl_certificate /etc/letsencrypt/live/chat.mydomain.com/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/chat.mydomain.com/privkey.pem; # managed by Certbot
+    client_max_body_size 100M; # we need this for allowing uploading of documents etc
 
     location / {
         proxy_pass http://localhost:8081;
@@ -158,14 +159,27 @@ model_list:
     litellm_params:
       model: gemini/gemini-2.5-pro
       api_key: os.environ/GEMINI_API_KEY
+  - model_name: dall-e-3
+    litellm_params:
+      model: gemini/imagen-3.0-generate-002
+      api_key: os.environ/GEMINI_API_KEY
+      drop_params: True
+      # This line forces LiteLLM to return the image data directly
+      image_generation_return_b64: True
+    model_info:
+      base_model: imagen-3.0-generate-002
+      mode: image_generation
 
 general_settings:
   master_key: sk-123456789-abcdefg
+
 ```
 
 #### `docker-compose.yml`
 ```yaml
+# This file defines the services for your chatbot application.
 services:
+  # LiteLLM acts as a proxy to the Gemini API
   litellm:
     image: ghcr.io/berriai/litellm:main-stable
     container_name: litellm_proxy
@@ -178,6 +192,7 @@ services:
       - ./config.yaml:/config.yaml
     restart: unless-stopped
 
+  # Open WebUI is the user-friendly chat interface
   open-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: open_webui
@@ -186,11 +201,15 @@ services:
     volumes:
       - ./open-webui:/app/backend/data
     environment:
+      # ADD THIS LINE to disable the conflicting Ollama check
+      - 'OLLAMA_BASE_URL='
       - 'OPENAI_API_BASE_URL=http://litellm:8000/v1'
       - 'OPENAI_API_KEY=sk-123456789-abcdefg'
+      - 'WEBUI_URL=https://chat.mydomain.com'
     depends_on:
       - litellm
     restart: unless-stopped
+
 ```
 
 Run services:
@@ -201,8 +220,8 @@ docker compose up -d
 
 ---
 
-## ✅ Testing
-
+## ✅ Configuration / Testing
+- Go to Settings > Images > Enable image generation and set the API url to http://litellm:8000/v1 with API key sk-123456789-abcdefg Adapt to your own choice of LLM.
 - Local test: [http://<LOCALNODE_IP>:8080](http://<LOCALNODE_IP>:8080)  
 - Remote access: [https://chat.mydomain.com](https://chat.mydomain.com) → forwards to localnode WebUI  
 
